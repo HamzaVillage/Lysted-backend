@@ -28,16 +28,49 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    marketplaces: {
+        poshmark: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            cookies: { type: Object, default: {} },
+            connectedAt: { type: Date }
+        },
+        ebay: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            tokens: { type: Object, default: {} },
+            connectedAt: { type: Date }
+        },
+        facebook: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            connectedAt: { type: Date }
+        },
+        depop: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            connectedAt: { type: Date }
+        },
+        mercari: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            connectedAt: { type: Date }
+        },
+        offerup: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            connectedAt: { type: Date }
+        }
+    },
 }, {
     timestamps: true,
 });
 
 // Password hash before saving
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+    if (!this.isModified('password')) return;
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
 });
 
 // Compare password method

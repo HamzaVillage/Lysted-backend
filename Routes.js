@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const authController = require('./controller/authController');
+const marketplaceController = require('./controller/marketplaceController');
 const { protect } = require('./utils/authMiddleware');
 
 // @route   POST /api/auth/register
@@ -28,5 +29,17 @@ router.post(
 
 // @route   GET /api/auth/me (Protected)
 router.get('/me', protect, authController.getMe);
+
+// @route   POST /api/auth/marketplace/connect (Protected)
+router.post(
+    '/marketplace/connect',
+    protect,
+    [
+        body('marketplace').trim().notEmpty().withMessage('Marketplace is required'),
+        body('email').trim().notEmpty().withMessage('Email / Username is required'),
+        body('password').trim().notEmpty().withMessage('Password is required'),
+    ],
+    marketplaceController.connectMarketplace
+);
 
 module.exports = router;
