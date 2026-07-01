@@ -1,9 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
+const multer = require('multer');
 const authController = require('./controller/authController');
 const marketplaceController = require('./controller/marketplaceController');
+const ebayController = require('./controller/ebayController');
+const aiController = require('./controller/aiController');
 const { protect } = require('./utils/authMiddleware');
+
+// Multer config — store in memory for direct processing
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed.'), false);
+        }
+    },
+});
 
 // @route   POST /api/auth/register
 router.post(
@@ -41,5 +59,38 @@ router.post(
     ],
     marketplaceController.connectMarketplace
 );
+
+// @route   GET /api/auth/marketplace/ebay/auth-url (Protected)
+router.get('/marketplace/ebay/auth-url', protect, ebayController.getAuthUrl);
+
+// @route   GET /api/auth/marketplace/ebay/callback (Public)
+router.get('/marketplace/ebay/callback', ebayController.handleCallback);
+
+// @route   POST /api/auth/marketplace/ebay/publish (Protected)
+router.post('/marketplace/ebay/publish', protect, ebayController.publishToEbay);
+
+// ============================================================
+// AI PRODUCT PROCESSING ROUTES
+// ============================================================
+
+// @route   POST /api/auth/ai/process-product (Protected)
+// @desc    Full AI pipeline: enhance image + analyze + generate images + suggest title/desc
+router.post('/ai/process-product', protect, upload.single('image'), aiController.processProduct);
+
+// @route   POST /api/auth/ai/enhance-image (Protected)
+// @desc    Enhance uploaded product image only
+router.post('/ai/enhance-image', protect, upload.single('image'), aiController.enhanceImage);
+
+// @route   POST /api/auth/ai/analyze (Protected)
+// @desc    Analyze product from image only
+router.post('/ai/analyze', protect, upload.single('image'), aiController.analyzeProductImage);
+
+// @route   POST /api/auth/ai/generate-images (Protected)
+// @desc    Generate 2 professional product images
+router.post('/ai/generate-images', protect, upload.single('image'), aiController.generateImages);
+
+// @route   POST /api/auth/ai/suggest-listing (Protected)
+// @desc    Generate title & description suggestions
+router.post('/ai/suggest-listing', protect, upload.single('image'), aiController.suggestListing);
 
 module.exports = router;
