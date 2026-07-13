@@ -77,7 +77,7 @@ const enhanceImageWithSharp = async (imageBuffer) => {
 // ============================================================
 const analyzeProduct = async (imageBuffer, mimeType) => {
     const genAI = getGenAI();
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
     const imagePart = bufferToGenerativePart(imageBuffer, mimeType);
 
     const prompt = `You are an expert product photographer and e-commerce listing specialist.
@@ -134,11 +134,11 @@ Respond ONLY with valid JSON. No markdown, no code fences. Just raw JSON with th
 const generateProductImages = async (productAnalysis, originalImageBuffer, mimeType) => {
     const genAI = getGenAI();
 
-    // Use gemini-2.0-flash with image generation capability
+    // Use gemini-3.1-flash-image with image generation capability
     const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-preview-image-generation',
+        model: 'gemini-3.1-flash-image',
         generationConfig: {
-            responseModalities: ['image', 'text'],
+            responseModalities: ['IMAGE', 'TEXT'],
         },
     });
 
@@ -253,7 +253,7 @@ Generate this image now.`;
 // ============================================================
 const generateListingSuggestions = async (productAnalysis, imageBuffer, mimeType) => {
     const genAI = getGenAI();
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
 
     const imagePart = bufferToGenerativePart(imageBuffer, mimeType);
     const { productType, brand, color, material, condition, features, style, category } = productAnalysis;
