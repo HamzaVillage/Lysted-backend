@@ -137,3 +137,148 @@ exports.connectMarketplace = async (req, res) => {
         });
     }
 };
+
+/**
+ * GET /api/auth/marketplace/all-listings
+ * Fetches combined listings across eBay, Etsy, and MongoDB Listing database
+ */
+exports.getAllListings = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const UserModal = require('../modal/User');
+        const ListingModal = require('../modal/Listing');
+        const user = await UserModal.findById(userId);
+
+        const allListings = [];
+
+        // 1. Fetch from MongoDB Listing collection
+        const dbListings = await ListingModal.find({ userId }).sort({ createdAt: -1 });
+        dbListings.forEach(item => {
+            const platformUpper = item.platform ? item.platform.toUpperCase() : 'LYSTED';
+            const dynamicStatus = item.status && item.status.includes('Listed on') 
+                ? item.status 
+                : `Listed on ${platformUpper}`;
+
+            allListings.push({
+                id: String(item._id),
+                title: item.title,
+                description: item.description,
+                price: typeof item.price === 'number' ? `$${item.price.toFixed(2)}` : String(item.price),
+                rawPrice: typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 25,
+                status: dynamicStatus,
+                platform: platformUpper,
+                listingUrl: item.listingUrl || '',
+                image: item.images && item.images.length > 0 ? item.images[0] : null
+            });
+        });
+
+        // 2. Fetch eBay listings if connected
+        if (user && user.marketplaces?.ebay?.connected) {
+            try {
+                const ebayController = require('./ebayController');
+                const ebayReq = { user: req.user };
+                let ebayData = null;
+                const mockRes = {
+                    status: () => mockRes,
+                    json: (data) => { ebayData = data; }
+                };
+                await ebayController.getEbayListings(ebayReq, mockRes);
+                if (ebayData && ebayData.success && Array.isArray(ebayData.listings)) {
+                    ebayData.listings.forEach(item => {
+                        if (!allListings.some(l => l.id === item.id)) {
+                            allListings.push({
+                                ...item,
+                                platform: 'EBAY'
+                            });
+                        }
+                    });
+                }
+            } catch (eErr) {
+                console.warn('[getAllListings] eBay fetch warning:', eErr.message);
+            }
+        }
+
+        // 3. Fetch Etsy listings if connected
+        if (user && user.marketplaces?.etsy?.connected) {
+            try {
+                const etsyController = require('./etsyController');
+                const etsyReq = { user: req.user };
+                let etsyData = null;
+                const mockRes = {
+                    status: () => mockRes,
+                    json: (data) => { etsyData = data; }
+                };
+                await etsyController.getEtsyListings(etsyReq, mockRes);
+                if (etsyData && etsyData.success && Array.isArray(etsyData.results)) {
+                    etsyData.results.forEach(item => {
+                        const etsyId = String(item.listing_id || item.id);
+                        if (!allListings.some(l => l.id === etsyId)) {
+                            const numPrice = item.price ? (item.price.amount / (item.price.divisor || 100)) : 19.99;
+                            allListings.push({
+                                id: etsyId,
+                                title: item.title || 'Etsy Item',
+                                description: item.description || '',
+                                price: `$${numPrice.toFixed(2)}`,
+                                rawPrice: numPrice,
+                                quantity: item.quantity || 1,
+                                status: item.state ? `Listed on ETSY (${item.state.toUpperCase()})` : 'Listed on ETSY',
+                                platform: 'ETSY',
+                                listingUrl: item.url || `https://www.etsy.com/listing/${etsyId}`,
+                                image: item.Images && item.Images.length > 0 ? item.Images[0].url_570xN : null
+                            });
+                        }
+                    });
+                }
+            } catch (etsyErr) {
+                console.warn('[getAllListings] Etsy fetch warning:', etsyErr.message);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            count: allListings.length,
+            listings: allListings
+        });
+    } catch (error) {
+        console.error('[getAllListings Error]:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch combined listings',
+            listings: []
+        });
+    }
+};
+
+/**
+ * PUT /api/auth/update-profile
+ * Update logged-in user profile details
+ */
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const UserModal = require('../modal/User');
+        const { fullName, phone, email } = req.body;
+
+        const user = await UserModal.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (fullName) user.fullName = fullName.trim();
+        if (phone) user.phone = phone.trim();
+        if (email) user.email = email.trim().toLowerCase();
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            user
+        });
+    } catch (err) {
+        console.error('[updateProfile Error]:', err.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update profile'
+        });
+    }
+};
+

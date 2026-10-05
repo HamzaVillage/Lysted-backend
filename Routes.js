@@ -5,6 +5,7 @@ const multer = require('multer');
 const authController = require('./controller/authController');
 const marketplaceController = require('./controller/marketplaceController');
 const ebayController = require('./controller/ebayController');
+const etsyController = require('./controller/etsyController');
 const aiController = require('./controller/aiController');
 const { protect } = require('./utils/authMiddleware');
 
@@ -48,6 +49,12 @@ router.post(
 // @route   GET /api/auth/me (Protected)
 router.get('/me', protect, authController.getMe);
 
+// @route   PUT /api/auth/update-profile (Protected)
+router.put('/update-profile', protect, marketplaceController.updateProfile);
+
+// @route   GET /api/auth/marketplace/all-listings (Protected)
+router.get('/marketplace/all-listings', protect, marketplaceController.getAllListings);
+
 // @route   POST /api/auth/marketplace/connect (Protected)
 router.post(
     '/marketplace/connect',
@@ -63,11 +70,49 @@ router.post(
 // @route   GET /api/auth/marketplace/ebay/auth-url (Protected)
 router.get('/marketplace/ebay/auth-url', protect, ebayController.getAuthUrl);
 
-// @route   GET /api/auth/marketplace/ebay/callback (Public)
+// @route   GET /api/auth/marketplace/ebay/callback (Public Web Redirect)
 router.get('/marketplace/ebay/callback', ebayController.handleCallback);
+
+// @route   POST /api/auth/marketplace/ebay/callback (Protected/Public JSON Code Exchange)
+router.post('/marketplace/ebay/callback', ebayController.exchangeCodeForTokens);
+
+// @route   GET /api/auth/marketplace/ebay/policies (Protected)
+router.get('/marketplace/ebay/policies', protect, ebayController.getSellerPolicies);
 
 // @route   POST /api/auth/marketplace/ebay/publish (Protected)
 router.post('/marketplace/ebay/publish', protect, ebayController.publishToEbay);
+
+// @route   GET /api/auth/marketplace/ebay/listings (Protected)
+router.get('/marketplace/ebay/listings', protect, ebayController.getEbayListings);
+
+// @route   GET /api/auth/marketplace/ebay/categories (Protected)
+router.get('/marketplace/ebay/categories', protect, ebayController.getEbayCategories);
+
+// ============================================================
+// ETSY MARKETPLACE ROUTES
+// ============================================================
+
+// @route   GET /api/auth/marketplace/etsy/auth-url (Protected)
+router.get('/marketplace/etsy/auth-url', protect, etsyController.getAuthUrl);
+
+// @route   GET /api/auth/marketplace/etsy/callback (Public Web Redirect)
+router.get('/marketplace/etsy/callback', etsyController.handleCallback);
+
+// @route   POST /api/auth/marketplace/etsy/callback (Protected/Public JSON Code Exchange)
+router.post('/marketplace/etsy/callback', etsyController.exchangeCodeForTokens);
+
+// @route   GET /api/auth/marketplace/etsy/shop (Protected)
+router.get('/marketplace/etsy/shop', protect, etsyController.getEtsyShopDetails);
+
+// @route   GET /api/auth/marketplace/etsy/listings (Protected)
+router.get('/marketplace/etsy/listings', protect, etsyController.getEtsyListings);
+
+// @route   POST /api/auth/marketplace/etsy/publish (Protected)
+router.post('/marketplace/etsy/publish', protect, etsyController.publishToEtsy);
+
+// @route   POST /api/auth/marketplace/etsy/disconnect (Protected)
+router.post('/marketplace/etsy/disconnect', protect, etsyController.disconnectEtsy);
+
 
 // ============================================================
 // AI PRODUCT PROCESSING ROUTES

@@ -60,6 +60,14 @@ const userSchema = new mongoose.Schema({
             connected: { type: Boolean, default: false },
             email: { type: String, default: '' },
             connectedAt: { type: Date }
+        },
+        etsy: {
+            connected: { type: Boolean, default: false },
+            email: { type: String, default: '' },
+            shopId: { type: String, default: '' },
+            shopName: { type: String, default: '' },
+            tokens: { type: Object, default: {} },
+            connectedAt: { type: Date }
         }
     },
 }, {
