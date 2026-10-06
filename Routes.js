@@ -46,6 +46,9 @@ router.post(
     authController.login
 );
 
+// @route   POST /api/auth/google
+router.post('/google', authController.googleAuth);
+
 // @route   GET /api/auth/me (Protected)
 router.get('/me', protect, authController.getMe);
 
@@ -110,8 +113,49 @@ router.get('/marketplace/etsy/listings', protect, etsyController.getEtsyListings
 // @route   POST /api/auth/marketplace/etsy/publish (Protected)
 router.post('/marketplace/etsy/publish', protect, etsyController.publishToEtsy);
 
+// @route   PATCH /api/auth/marketplace/listings/:id/status (Protected)
+router.patch('/marketplace/listings/:id/status', protect, marketplaceController.updateListingStatus);
+
+// @route   DELETE /api/auth/marketplace/listings/:id (Protected)
+router.delete('/marketplace/listings/:id', protect, marketplaceController.deleteListing);
+
+// @route   GET /api/auth/marketplace/etsy/shipping-profiles (Protected)
+router.get('/marketplace/etsy/shipping-profiles', protect, etsyController.getShippingProfiles);
+
+// @route   POST /api/auth/marketplace/etsy/shipping-profiles (Protected)
+router.post('/marketplace/etsy/shipping-profiles', protect, etsyController.createShippingProfile);
+
+// @route   GET /api/auth/marketplace/etsy/readiness-states (Protected)
+router.get('/marketplace/etsy/readiness-states', protect, etsyController.getReadinessStates);
+
+// @route   POST /api/auth/marketplace/etsy/readiness-states (Protected)
+router.post('/marketplace/etsy/readiness-states', protect, etsyController.createReadinessState);
+
+// @route   GET /api/auth/marketplace/etsy/taxonomy (Protected)
+router.get('/marketplace/etsy/taxonomy', protect, etsyController.getSellerTaxonomy);
+
+// @route   GET /api/auth/marketplace/etsy/taxonomy/:taxonomyId/properties (Protected)
+router.get('/marketplace/etsy/taxonomy/:taxonomyId/properties', protect, etsyController.getTaxonomyProperties);
+
+// @route   GET /api/auth/marketplace/etsy/return-policies (Protected)
+router.get('/marketplace/etsy/return-policies', protect, etsyController.getReturnPolicies);
+
+// @route   POST /api/auth/marketplace/etsy/return-policies (Protected)
+router.post('/marketplace/etsy/return-policies', protect, etsyController.createReturnPolicy);
+
+// @route   POST /api/auth/marketplace/etsy/listings/:listingId/videos (Protected)
+router.post('/marketplace/etsy/listings/:listingId/videos', protect, upload.single('video'), etsyController.uploadListingVideo);
+
 // @route   POST /api/auth/marketplace/etsy/disconnect (Protected)
 router.post('/marketplace/etsy/disconnect', protect, etsyController.disconnectEtsy);
+
+// @route   PATCH /api/auth/marketplace/etsy/listings/:listingId/state (Protected)
+router.patch('/marketplace/etsy/listings/:listingId/state', protect, etsyController.updateEtsyListingState);
+
+// @route   DELETE /api/auth/marketplace/etsy/listings/:listingId (Protected)
+router.delete('/marketplace/etsy/listings/:listingId', protect, etsyController.deleteEtsyListing);
+
+
 
 
 // ============================================================

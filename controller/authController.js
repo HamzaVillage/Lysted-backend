@@ -137,3 +137,60 @@ exports.getMe = async (req, res) => {
         });
     }
 };
+
+// @desc    Google Sign-In / Sign-Up
+// @route   POST /api/auth/google
+exports.googleAuth = async (req, res) => {
+    try {
+        const { email, fullName, profileImage, googleId } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required for Google Sign-In',
+            });
+        }
+
+        let user = await User.findOne({ email: email.toLowerCase() });
+
+        if (!user) {
+            user = await User.create({
+                fullName: fullName || 'Google User',
+                email: email.toLowerCase(),
+                profileImage: profileImage || '',
+                googleId: googleId || '',
+                authProvider: 'google',
+            });
+        } else {
+            let updated = false;
+            if (googleId && !user.googleId) {
+                user.googleId = googleId;
+                updated = true;
+            }
+            if (profileImage && !user.profileImage) {
+                user.profileImage = profileImage;
+                updated = true;
+            }
+            if (updated) {
+                await user.save();
+            }
+        }
+
+        const token = generateToken(user._id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Google authentication successful',
+            token,
+            user,
+        });
+
+    } catch (error) {
+        console.error('Google Auth Error:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error during Google authentication',
+            error: error.message,
+        });
+    }
+};

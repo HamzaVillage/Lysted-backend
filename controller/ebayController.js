@@ -34,12 +34,16 @@ const EBAY_SCOPES = [
 
 /**
  * Common Headers Helper for eBay REST APIs
+ * Reference: https://developer.ebay.com/develop/guides/sell/using-ebay-restful-apis#overview
  */
-const getEbayHeaders = (accessToken) => ({
+const getEbayHeaders = (accessToken, marketplaceId = 'EBAY_US') => ({
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
-    'Content-Language': 'en-US' // Critical header for string processing on eBay
+    'Content-Language': 'en-US',
+    'Accept-Language': 'en-US',
+    'X-EBAY-C-MARKETPLACE-ID': marketplaceId
 });
+
 
 // ============================================================
 // PART 1 & 2: OAUTH & AUTHENTICATION ENDPOINTS
@@ -486,6 +490,14 @@ exports.getSellerPolicies = async (req, res) => {
 const createOrUpdateInventoryItem = async (accessToken, sku, productDetails) => {
     const url = `${API_BASE}/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`;
     
+    // Filter only valid HTTP/HTTPS URLs for eBay
+    const validHttpImages = (productDetails.images || [])
+        .filter(img => typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')));
+
+    const finalImageUrls = validHttpImages.length > 0 
+        ? validHttpImages 
+        : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+
     const payload = {
         availability: {
             shipToLocationAvailability: {
@@ -501,9 +513,7 @@ const createOrUpdateInventoryItem = async (accessToken, sku, productDetails) => 
                 Size: [productDetails.size || 'M'],
                 Color: [productDetails.color || 'Multi-color']
             },
-            imageUrls: productDetails.images && productDetails.images.length > 0 
-                ? productDetails.images 
-                : ['https://picsum.photos/800/800']
+            imageUrls: finalImageUrls
         }
     };
 

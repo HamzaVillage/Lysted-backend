@@ -224,7 +224,11 @@ exports.getAllListings = async (req, res) => {
                                 status: item.state ? `Listed on ETSY (${item.state.toUpperCase()})` : 'Listed on ETSY',
                                 platform: 'ETSY',
                                 listingUrl: item.url || `https://www.etsy.com/listing/${etsyId}`,
-                                image: item.Images && item.Images.length > 0 ? item.Images[0].url_570xN : null
+                                image: (item.images && item.images.length > 0)
+                                    ? (item.images[0].url_570xN || item.images[0].url_fullxfull || item.images[0].url_170x135)
+                                    : (item.Images && item.Images.length > 0)
+                                    ? (item.Images[0].url_570xN || item.Images[0].url_fullxfull || item.Images[0].url_170x135)
+                                    : null
                             });
                         }
                     });
@@ -281,4 +285,158 @@ exports.updateProfile = async (req, res) => {
         });
     }
 };
+
+/**
+ * PATCH /api/auth/marketplace/listings/:id/status
+ * Activate or Deactivate a listing across MongoDB and connected marketplaces
+ */
+exports.updateListingStatus = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const { id } = req.params;
+        const { status } = req.body; // 'active' or 'inactive'
+        const Listing = require('../modal/Listing');
+        const User = require('../modal/User');
+
+        if (!status || !['active', 'inactive'].includes(status.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                message: "Status must be either 'active' or 'inactive'"
+            });
+        }
+
+        const targetState = status.toLowerCase();
+        const isMongoId = /^[0-9a-fA-F]{24}$/.test(id);
+        let listing = await Listing.findOne({
+            $or: isMongoId ? [{ _id: id }, { listingId: id }] : [{ listingId: id }],
+            userId
+        });
+
+        const user = await User.findById(userId);
+
+        // If listing is an Etsy listing and Etsy is connected, update on Etsy API
+        const etsyListingId = listing?.listingId || id;
+        if (user && user.marketplaces?.etsy?.connected && user.marketplaces.etsy.shopId && etsyListingId && !etsyListingId.startsWith('LYS-') && !etsyListingId.startsWith('ETSY-DRAFT-')) {
+            try {
+                const etsyController = require('./etsyController');
+                const { apiKeyHeader } = etsyController.getEtsyCredentials();
+                const accessToken = await etsyController.getValidAccessToken(user);
+                const shopId = user.marketplaces.etsy.shopId;
+                const qs = require('qs');
+
+                await axios.patch(
+                    `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/${etsyListingId}`,
+                    qs.stringify({ state: targetState }),
+                    {
+                        headers: {
+                            'x-api-key': apiKeyHeader,
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    }
+                );
+                console.log(`[Etsy API] Listing ${etsyListingId} state updated to ${targetState}`);
+            } catch (etsyErr) {
+                console.warn('[Etsy State Update Warning]:', etsyErr.response?.data || etsyErr.message);
+            }
+        }
+
+        const newStatusText = targetState === 'active' 
+            ? (listing?.platform ? `Listed on ${listing.platform.toUpperCase()} (ACTIVE)` : 'Active')
+            : (listing?.platform ? `Listed on ${listing.platform.toUpperCase()} (INACTIVE)` : 'Inactive');
+
+        if (listing) {
+            listing.status = newStatusText;
+            await listing.save();
+        } else {
+            listing = await Listing.create({
+                userId,
+                title: req.body.title || 'Marketplace Listing',
+                price: req.body.price || '$25.00',
+                listingId: id,
+                status: newStatusText,
+                platform: req.body.platform || 'etsy'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Listing successfully ${targetState === 'active' ? 'activated' : 'deactivated'}.`,
+            listing: {
+                id: String(listing._id),
+                status: listing.status,
+                state: targetState.toUpperCase()
+            }
+        });
+    } catch (err) {
+        console.error('[updateListingStatus Error]:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update listing status',
+            error: err.message
+        });
+    }
+};
+
+/**
+ * DELETE /api/auth/marketplace/listings/:id
+ * Delete a listing from MongoDB and connected marketplaces
+ */
+exports.deleteListing = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const { id } = req.params;
+        const Listing = require('../modal/Listing');
+        const User = require('../modal/User');
+
+        const isMongoId = /^[0-9a-fA-F]{24}$/.test(id);
+        const listing = await Listing.findOne({
+            $or: isMongoId ? [{ _id: id }, { listingId: id }] : [{ listingId: id }],
+            userId
+        });
+
+        const user = await User.findById(userId);
+        const etsyListingId = listing?.listingId || id;
+
+        // If listing is an Etsy listing and Etsy is connected, delete from Etsy API
+        if (user && user.marketplaces?.etsy?.connected && user.marketplaces.etsy.shopId && etsyListingId && !etsyListingId.startsWith('LYS-') && !etsyListingId.startsWith('ETSY-DRAFT-')) {
+            try {
+                const etsyController = require('./etsyController');
+                const { apiKeyHeader } = etsyController.getEtsyCredentials();
+                const accessToken = await etsyController.getValidAccessToken(user);
+                const shopId = user.marketplaces.etsy.shopId;
+
+                await axios.delete(
+                    `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/${etsyListingId}`,
+                    {
+                        headers: {
+                            'x-api-key': apiKeyHeader,
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+                console.log(`[Etsy API] Listing ${etsyListingId} deleted from Etsy`);
+            } catch (etsyErr) {
+                console.warn('[Etsy Delete Listing Warning]:', etsyErr.response?.data || etsyErr.message);
+            }
+        }
+
+        if (listing) {
+            await Listing.findByIdAndDelete(listing._id);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Listing successfully deleted.'
+        });
+    } catch (err) {
+        console.error('[deleteListing Error]:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete listing',
+            error: err.message
+        });
+    }
+};
+
 
