@@ -194,3 +194,73 @@ exports.googleAuth = async (req, res) => {
         });
     }
 };
+
+// @desc    Apple Sign-In / Sign-Up
+// @route   POST /api/auth/apple
+exports.appleAuth = async (req, res) => {
+    try {
+        const { appleId, email, fullName, identityToken } = req.body;
+
+        if (!appleId && !email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Apple ID or Email is required for Apple Sign-In',
+            });
+        }
+
+        // Try finding user by appleId first, then by email
+        let user = null;
+        if (appleId) {
+            user = await User.findOne({ appleId });
+        }
+        if (!user && email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        }
+
+        if (!user) {
+            // New user registration via Apple
+            const userEmail = email 
+                ? email.toLowerCase() 
+                : `${appleId || Date.now()}@privaterelay.appleid.com`;
+
+            user = await User.create({
+                fullName: fullName || 'Apple User',
+                email: userEmail,
+                appleId: appleId || '',
+                authProvider: 'apple',
+            });
+        } else {
+            // Existing user - link appleId or update name if applicable
+            let updated = false;
+            if (appleId && !user.appleId) {
+                user.appleId = appleId;
+                updated = true;
+            }
+            if (fullName && (!user.fullName || user.fullName === 'Apple User')) {
+                user.fullName = fullName;
+                updated = true;
+            }
+            if (updated) {
+                await user.save();
+            }
+        }
+
+        const token = generateToken(user._id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Apple authentication successful',
+            token,
+            user,
+        });
+
+    } catch (error) {
+        console.error('Apple Auth Error:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error during Apple authentication',
+            error: error.message,
+        });
+    }
+};
+

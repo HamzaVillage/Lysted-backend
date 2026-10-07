@@ -49,6 +49,9 @@ router.post(
 // @route   POST /api/auth/google
 router.post('/google', authController.googleAuth);
 
+// @route   POST /api/auth/apple
+router.post('/apple', authController.appleAuth);
+
 // @route   GET /api/auth/me (Protected)
 router.get('/me', protect, authController.getMe);
 
