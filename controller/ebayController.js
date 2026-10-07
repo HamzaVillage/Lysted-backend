@@ -15,21 +15,14 @@ const AUTH_BASE = IS_SANDBOX
     ? 'https://auth.sandbox.ebay.com'
     : 'https://auth.ebay.com';
 
-// Required Scopes for eBay Listing, Account Policy, & Identity APIs
+// Required Core Scopes for eBay Listing, Inventory, Account Policies, & Identity APIs
 const EBAY_SCOPES = [
     'https://api.ebay.com/oauth/api_scope',
     'https://api.ebay.com/oauth/api_scope/sell.inventory',
-    'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly',
     'https://api.ebay.com/oauth/api_scope/sell.account',
-    'https://api.ebay.com/oauth/api_scope/sell.account.readonly',
     'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-    'https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly',
     'https://api.ebay.com/oauth/api_scope/sell.item',
-    'https://api.ebay.com/oauth/api_scope/sell.item.draft',
-    'https://api.ebay.com/oauth/api_scope/sell.marketing',
-    'https://api.ebay.com/oauth/api_scope/sell.finances',
-    'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
-    'https://api.ebay.com/oauth/api_scope/commerce.identity.email.readonly'
+    'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
 ].join(' ');
 
 /**
@@ -66,9 +59,9 @@ exports.getAuthUrl = async (req, res) => {
             });
         }
 
-        // Format scopes preserving https:// colons/slashes as required by eBay OAuth spec
-        const scopeString = EBAY_SCOPES.split(' ').map(s => encodeURI(s)).join('%20');
-        const authUrl = `${AUTH_BASE}/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${ruName}&scope=${scopeString}&state=${userId}&prompt=login`;
+        // URL encode scopes properly as space-separated string per eBay OAuth spec
+        const scopeString = encodeURIComponent(EBAY_SCOPES);
+        const authUrl = `${AUTH_BASE}/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(ruName)}&scope=${scopeString}&state=${encodeURIComponent(userId)}`;
 
         console.log('[eBay OAuth URL Generated]:', authUrl);
 
