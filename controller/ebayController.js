@@ -476,6 +476,19 @@ exports.getSellerPolicies = async (req, res) => {
 // PART 3: SELL INVENTORY API INTEGRATION (3-STEP PIPELINE)
 // ============================================================
 
+const normalizeEbayCondition = (cond) => {
+    if (!cond) return 'USED_EXCELLENT';
+    const c = String(cond).toUpperCase();
+    if (c.includes('BRAND NEW') || c === 'NEW' || c.includes('WITH TAGS')) return 'NEW';
+    if (c.includes('LIKE NEW')) return 'LIKE_NEW';
+    if (c.includes('EXCELLENT')) return 'USED_EXCELLENT';
+    if (c.includes('VERY GOOD')) return 'USED_VERY_GOOD';
+    if (c.includes('GOOD')) return 'USED_GOOD';
+    if (c.includes('ACCEPTABLE') || c.includes('FAIR')) return 'USED_ACCEPTABLE';
+    if (c.includes('PARTS')) return 'FOR_PARTS_OR_NOT_WORKING';
+    return 'USED_EXCELLENT';
+};
+
 /**
  * Step 3a: PUT /sell/inventory/v1/inventory_item/{sku}
  * Creates or updates product details, images, aspects, title, & availability
@@ -497,14 +510,14 @@ const createOrUpdateInventoryItem = async (accessToken, sku, productDetails) => 
                 quantity: productDetails.quantity || 1
             }
         },
-        condition: productDetails.condition || 'NEW', // Valid: NEW, LIKE_NEW, USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD
+        condition: normalizeEbayCondition(productDetails.condition), // Valid eBay Enum: NEW, LIKE_NEW, USED_EXCELLENT, etc.
         product: {
             title: (productDetails.title || 'Product Title').substring(0, 80), // eBay max 80 chars
             description: productDetails.description || 'No description provided.',
             aspects: productDetails.aspects || {
-                Brand: [productDetails.brand || 'Unbranded'],
-                Size: [productDetails.size || 'M'],
-                Color: [productDetails.color || 'Multi-color']
+                Brand: [String(productDetails.brand || 'Unbranded')],
+                Size: [String(productDetails.size || 'M')],
+                Color: [String(productDetails.color || 'Multi-color')]
             },
             imageUrls: finalImageUrls
         }
@@ -716,7 +729,8 @@ exports.publishToEbay = async (req, res) => {
             console.warn('[eBay API Error] Live API request failed. Using sandbox simulation fallback:', apiErr.response?.data || apiErr.message);
 
             const mockListingId = Math.floor(Math.random() * 900000000000) + 100000000000;
-            const mockListingUrl = `https://www.sandbox.ebay.com/itm/${mockListingId}`;
+            const searchKeyword = encodeURIComponent((title || 'clothing').substring(0, 40));
+            const mockListingUrl = `https://www.sandbox.ebay.com/sch/i.html?_nkw=${searchKeyword}`;
 
             // Save listing to MongoDB so user's uploaded product displays on Home Screen
             await Listing.create({

@@ -33,7 +33,7 @@ function generatePKCE() {
 const getEtsyCredentials = () => {
     const keystring = process.env.ETSY_KEYSTRING || '17yr1oi8rb7z9a32eczvobr9';
     const sharedSecret = process.env.ETSY_SHARED_SECRET || 'phrlt26sdz';
-    const redirectUri = process.env.ETSY_REDIRECT_URI || 'http://localhost:5001/api/auth/marketplace/etsy/callback';
+    const redirectUri = process.env.ETSY_REDIRECT_URI || 'https://app.lystd.ai/api/auth/marketplace/etsy/callback';
     const apiKeyHeader = sharedSecret ? `${keystring}:${sharedSecret}` : keystring;
     return { keystring, sharedSecret, redirectUri, apiKeyHeader };
 };
