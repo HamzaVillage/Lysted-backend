@@ -238,10 +238,50 @@ exports.getAllListings = async (req, res) => {
             }
         }
 
+        // 4. Master Deduplication across database, eBay, and Etsy listings
+        const uniqueListingsMap = new Map();
+        const keyToComposite = new Map();
+
+        allListings.forEach(item => {
+            const titleNorm = (item.title || '').trim().toLowerCase();
+            const platformNorm = (item.platform || 'LYSTED').toUpperCase();
+            const compositeKey = `${platformNorm}::${titleNorm}`;
+            const listingIdKey = item.listingId ? `ID::${item.listingId}` : null;
+            const skuKey = item.sku ? `SKU::${item.sku}` : null;
+
+            let matchKey = null;
+            if (uniqueListingsMap.has(compositeKey)) {
+                matchKey = compositeKey;
+            } else if (listingIdKey && keyToComposite.has(listingIdKey)) {
+                matchKey = keyToComposite.get(listingIdKey);
+            } else if (skuKey && keyToComposite.has(skuKey)) {
+                matchKey = keyToComposite.get(skuKey);
+            }
+
+            if (!matchKey) {
+                uniqueListingsMap.set(compositeKey, item);
+                if (listingIdKey) keyToComposite.set(listingIdKey, compositeKey);
+                if (skuKey) keyToComposite.set(skuKey, compositeKey);
+            } else {
+                const existing = uniqueListingsMap.get(matchKey);
+                const updated = {
+                    ...existing,
+                    ...item,
+                    image: item.image || existing.image || null,
+                    listingUrl: item.listingUrl || existing.listingUrl || '',
+                    description: (item.description && item.description.length > (existing.description?.length || 0)) ? item.description : existing.description,
+                    status: (item.status && item.status.includes('(')) ? item.status : (existing.status || item.status)
+                };
+                uniqueListingsMap.set(matchKey, updated);
+            }
+        });
+
+        const uniqueListings = Array.from(uniqueListingsMap.values());
+
         return res.status(200).json({
             success: true,
-            count: allListings.length,
-            listings: allListings
+            count: uniqueListings.length,
+            listings: uniqueListings
         });
     } catch (error) {
         console.error('[getAllListings Error]:', error.message);
